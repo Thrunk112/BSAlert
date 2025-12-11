@@ -60,7 +60,7 @@ end
 
 function BSAlert_OnLoad()
     this:RegisterEvent("PLAYER_REGEN_ENABLED")
-	this:RegisterEvent("ADDON_LOADED")
+	this:RegisterEvent("PLAYER_ENTERING_WORLD")
     this:RegisterEvent("PLAYER_REGEN_DISABLED")
     this:RegisterEvent("UNIT_CASTEVENT")
     this:RegisterEvent("PARTY_MEMBERS_CHANGED")
@@ -70,9 +70,9 @@ end
 
 
 function BSAlert_OnEvent(event)
-	if event == "ADDON_LOADED" and arg1 == "BSAlert" then
+	if event == "PLAYER_ENTERING_WORLD" then
 		UpdatePartyGUIDs()
-		this:UnregisterEvent("ADDON_LOADED")
+		this:UnregisterEvent("PLAYER_ENTERING_WORLD")
 	end
     if event == "PLAYER_REGEN_DISABLED" then
         BSAlert_combat = true
