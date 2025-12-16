@@ -256,7 +256,7 @@ local function UpdateBS()
 			lastUpdate = 0
 			BSTimerframe.title:SetTextColor(1, 0, 0, 1) 
 			BSTimerframe.title:SetText("!")
-			BSTimerframe:SetScript("OnUpdate", nil)
+			BSAlertFrame:SetScript("OnUpdate", nil)
         end
     end
 end
@@ -499,7 +499,7 @@ function BSAlert_OnEvent(event)
 			BuildOptions()
 			CheckExistingBattleShout()
 			if BSAlertTimer > 0 then
-				BSTimerframe:SetScript("OnUpdate", UpdateBS)
+				BSAlertFrame:SetScript("OnUpdate", UpdateBS)
 			end
 			NeedUpdate = true
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff[BSAlert]|r loaded.")
@@ -536,7 +536,7 @@ function BSAlert_OnEvent(event)
 			lastUpdate = GetTime()
 			BSTimerframe.title:SetText(120)
 			BSTimerframe.title:SetTextColor(1, 1, 1, 1)
-			BSTimerframe:SetScript("OnUpdate", UpdateBS)
+			BSAlertFrame:SetScript("OnUpdate", UpdateBS)
 		end
 	end
 	if NeedUpdate then 
