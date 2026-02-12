@@ -4,10 +4,11 @@ local updateInterval = .5
 local BSAlert_combat = nil
 local isLocked = true
 local partyGUIDs = {}
+local isInitialized = false
 
-local iconShown = false
-local timerShown = false
-local glowShown = false
+local iconShown = nil
+local timerShown = nil
+local glowShown = nil
 
 local backdrop = {
     edgeFile = "Interface\\AddOns\\BSAlert\\border",
@@ -29,6 +30,14 @@ if not BSAlert then
 		timerCombat = false,
     }
 end
+
+local BSAlertFrame = CreateFrame("Frame", "BSEvents", UIParent)
+BSAlertFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+BSAlertFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+BSAlertFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+BSAlertFrame:RegisterEvent("UNIT_CASTEVENT")
+BSAlertFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+
 
 local BSAlertGlow = CreateFrame("Frame")
 BSAlertGlow:SetFrameStrata("BACKGROUND")
@@ -173,44 +182,28 @@ end
 
 local function UpdateVisibility()
     local showIcon = false
-    local showTimer = false
-    local showGlow = false
+	local showTimer = false
+	local showGlow = false
 
     if not isLocked then
-        showIcon = BSAlert.enableIcon
-        showTimer = BSAlert.enableTimer
-		showIcon = true
-        showTimer = true
-        showGlow = false
+        showIcon = true 
+		showTimer = true
+		showGlow = false
     else
-
         if BSAlert.enableGlow and BSAlert_combat and (not HasBuff()) then
             showGlow = true
         end
-
         if BSAlert.enableIcon and (not HasBuff()) then
-            if BSAlert.iconCombat then
-                showIcon = BSAlert_combat and true or false
-            else
-                showIcon = true
-            end
+            showIcon = (not BSAlert.iconCombat) or BSAlert_combat
         end
-
         if BSAlert.enableTimer then
-            if BSAlert.timerCombat then
-                showTimer = BSAlert_combat and true or false
-            else
-                showTimer = true
-            end
+            showTimer = (not BSAlert.timerCombat) or BSAlert_combat
         end
     end
 
+    -- Efficient UI Updates: Only update if the state has changed
     if showIcon ~= iconShown then
-        if showIcon then
-            BSIconframe:Show()
-        else
-            BSIconframe:Hide()
-        end
+        if showIcon then BSIconframe:Show() else BSIconframe:Hide() end
         iconShown = showIcon
     end
 
@@ -228,11 +221,7 @@ local function UpdateVisibility()
     end
 
     if showGlow ~= glowShown then
-        if showGlow then
-            BSAlertGlow:Show()
-        else
-            BSAlertGlow:Hide()
-        end
+        if showGlow then BSAlertGlow:Show() else BSAlertGlow:Hide() end
         glowShown = showGlow
     end
 end
@@ -250,13 +239,14 @@ local function UpdateBS()
         BSAlertTimer = BSAlertTimer - delta
 		BSTimerframe.title:SetText(math.floor(BSAlertTimer))
 		BSTimerframe.title:SetTextColor(1, 1, 1, 1)
-		UpdateVisibility() --dont love this here, maybe can change or add if needed flag?
+		UpdateVisibility() 
         if BSAlertTimer < 0 then
             BSAlertTimer = 0
 			lastUpdate = 0
 			BSTimerframe.title:SetTextColor(1, 0, 0, 1) 
 			BSTimerframe.title:SetText("!")
 			BSAlertFrame:SetScript("OnUpdate", nil)
+			UpdateVisibility()
         end
     end
 end
@@ -295,14 +285,6 @@ local function ToggleLock()
 	UpdateVisibility()
 end
 
-
-function BSAlert_OnLoad()
-    this:RegisterEvent("PLAYER_REGEN_ENABLED")
-    this:RegisterEvent("PLAYER_ENTERING_WORLD")
-    this:RegisterEvent("PLAYER_REGEN_DISABLED")
-    this:RegisterEvent("UNIT_CASTEVENT")
-    this:RegisterEvent("PARTY_MEMBERS_CHANGED")
-end
 
 --option menu frames
 local BSOptions = CreateFrame("Frame", "BSOptions", UIParent)
@@ -488,61 +470,63 @@ BSOptions:RegisterForDrag("LeftButton")
 BSOptions:SetScript("OnDragStart", function(self) this:StartMoving() end)
 BSOptions:SetScript("OnDragStop", function(self) this:StopMovingOrSizing() end)
 
+--local function OnEvent()
+BSAlertFrame:SetScript("OnEvent", function()
 
-function BSAlert_OnEvent(event)
-	local NeedUpdate = false
+    local NeedUpdate = false
+
     if event == "PLAYER_ENTERING_WORLD" then
-        local HasUnitXP = pcall(UnitXP, "nop", "nop")
-        if HasUnitXP then
-            UpdatePartyGUIDs()
-			InitOptions()
-			BuildOptions()
-			CheckExistingBattleShout()
-			if BSAlertTimer > 0 then
-				BSAlertFrame:SetScript("OnUpdate", UpdateBS)
+		if not isInitialized then
+			local HasUnitXP = pcall(UnitXP, "nop", "nop")
+			if HasUnitXP then
+				UpdatePartyGUIDs()
+				InitOptions()
+				BuildOptions()
+				CheckExistingBattleShout()
+				
+				if BSAlertTimer > 0 then
+					BSAlertFrame:SetScript("OnUpdate", UpdateBS)
+				end
+				NeedUpdate = true
+				DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff[BSAlert]|r loaded.")
+			else
+				DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff[BSAlert]|r NOT loaded. UnitXP NOT Detected")
 			end
-			NeedUpdate = true
-            DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff[BSAlert]|r loaded.")
-        else
-            DEFAULT_CHAT_FRAME:AddMessage("|cff00ffff[BSAlert]|r NOT loaded. UnitXP NOT Detected")
-        end
+			isInitialized = true
+		end
         this:UnregisterEvent("PLAYER_ENTERING_WORLD")
     end
 
     if event == "PLAYER_REGEN_DISABLED" then
         BSAlert_combat = true
-		NeedUpdate = true
+        NeedUpdate = true
     elseif event == "PLAYER_REGEN_ENABLED" then
         BSAlert_combat = nil
-		NeedUpdate = true
+        NeedUpdate = true
     end
 
     if event == "PARTY_MEMBERS_CHANGED" then
         UpdatePartyGUIDs()
     end
 
-	if event == "UNIT_CASTEVENT" then
-		if arg4 ~= 25289 then
-			return
-		end
+    if event == "UNIT_CASTEVENT" then
+        if arg4 == 25289 and partyGUIDs[arg1] then
+            local dist = UnitXP("distanceBetween", "player", arg1)
+            if not dist or dist <= 20 then
+                NeedUpdate = true
+                BSAlertTimer = 120
+                lastUpdate = GetTime()
+                BSTimerframe.title:SetText(120)
+                BSTimerframe.title:SetTextColor(1, 1, 1, 1)
+                BSAlertFrame:SetScript("OnUpdate", UpdateBS)
+            end
+        end
+    end
 
-		if partyGUIDs[arg1] then
-			local dist = UnitXP("distanceBetween", "player", arg1)
-			if dist and dist > 20 then
-				return
-			end
-			NeedUpdate = true
-			BSAlertTimer = 120
-			lastUpdate = GetTime()
-			BSTimerframe.title:SetText(120)
-			BSTimerframe.title:SetTextColor(1, 1, 1, 1)
-			BSAlertFrame:SetScript("OnUpdate", UpdateBS)
-		end
-	end
-	if NeedUpdate then 
-	UpdateVisibility()
-	end
-end
+    if NeedUpdate then 
+        UpdateVisibility()
+    end
+end)
 
 
 SLASH_BS1 = "/BS"
@@ -556,4 +540,3 @@ SlashCmdList["BS"] = function(msg)
         end
     end
 end
-
