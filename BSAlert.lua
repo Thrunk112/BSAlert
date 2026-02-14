@@ -383,6 +383,22 @@ local function CreateConfig(parent, label, ctype, getter, setter, min, max, step
 end
 
 local function BuildOptions()
+	local iconCombatChk
+	local timerOnlyCombatChk
+	
+	local function RefreshSubOptions()
+		if iconCombatChk then
+			local iconEnabled = BSAlert.enableIcon
+			iconCombatChk:EnableMouse(iconEnabled)
+			iconCombatChk:SetAlpha(iconEnabled and 1 or 0.3)
+		end
+		if timerOnlyCombatChk then
+            local enabled = BSAlert.enableTimer
+            timerOnlyCombatChk:EnableMouse(enabled)
+            timerOnlyCombatChk:SetAlpha(enabled and 1 or 0.3)
+        end
+	end
+	
     CreateConfig(BSOptions, "Lock Frames", "boolean",
         function() return isLocked end,
         function(val) if val ~= isLocked then ToggleLock() end end
@@ -390,44 +406,38 @@ local function BuildOptions()
     CreateConfig(BSOptions, "Enable Screen Glow", "boolean",
         function() return BSAlert.enableGlow end,
         function(val) BSAlert.enableGlow = val
-UpdateVisibility()
+		UpdateVisibility()
 		end
     )
+	
     CreateConfig(BSOptions, "Enable Icon", "boolean",
         function() return BSAlert.enableIcon end,
         function(val) BSAlert.enableIcon = val 
 		UpdateVisibility()
+		RefreshSubOptions()
 		end
     )
-	local iconCombatChk = CreateConfig(BSOptions, "    Only in Combat", "boolean",
+	iconCombatChk = CreateConfig(BSOptions, "    Only in Combat", "boolean",
 		function() return BSAlert.iconCombat end,
 		function(val) BSAlert.iconCombat = val 
 		UpdateVisibility()
 		end
 	)
-	iconCombatChk:SetScript("OnUpdate", function()
-		local enabled = BSAlert.enableIcon
-		iconCombatChk:EnableMouse(enabled)
-		iconCombatChk:SetAlpha(enabled and 1 or 0.3)
-	end)
+
     CreateConfig(BSOptions, "Enable Timer", "boolean",
         function() return BSAlert.enableTimer end,
         function(val) BSAlert.enableTimer = val
 			UpdateVisibility()
+			RefreshSubOptions()
 		end
     )
-	local timerOnlyCombatChk = CreateConfig(BSOptions, "    Only in Combat", "boolean",
+	timerOnlyCombatChk = CreateConfig(BSOptions, "    Only in Combat", "boolean",
 		function() return BSAlert.timerCombat end,
 		function(val) BSAlert.timerCombat = val
-UpdateVisibility()
+		UpdateVisibility()
 		end
 	)
 
-	timerOnlyCombatChk:SetScript("OnUpdate", function()
-		local enabled = BSAlert.enableTimer
-		timerOnlyCombatChk:EnableMouse(enabled)
-		timerOnlyCombatChk:SetAlpha(enabled and 1 or 0.3)
-	end)
     CreateConfig(BSOptions, "Timer Font Size", "number",
         function() return BSAlert.timerFontSize or 14 end,
         function(val)
@@ -462,6 +472,8 @@ UpdateVisibility()
         function(val) BSAlert.earlyGlow = val end,
         1, 30, 1
     )
+	RefreshSubOptions()
+	
 end
 
 BSOptions:SetMovable(true)
